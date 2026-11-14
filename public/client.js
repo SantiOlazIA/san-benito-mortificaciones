@@ -496,6 +496,16 @@
     return dates.find((d) => d >= targetISO) || dates[dates.length - 1];
   }
 
+  function getMaxParticipantVisibleDate() {
+    const dates = getSortedDates();
+    if (dates.length === 0) return ui.todayISO;
+    const effectiveToday = getClampDate(ui.todayISO);
+    const todayIdx = dates.indexOf(effectiveToday);
+    if (todayIdx < 0) return dates[0];
+    const nextIdx = Math.min(todayIdx + 1, dates.length - 1);
+    return dates[nextIdx];
+  }
+
   function getWeekForDate(dateISO) {
     const weeks = ui.state.semanas || [];
     const found = weeks.find((w) => dateISO >= w.inicio && dateISO <= w.fin);
@@ -590,17 +600,25 @@
 
     els.participantView.classList.remove('hidden');
     const dates = getSortedDates();
-    const selectedDate = getClampDate(ui.selectedDate);
+    const effectiveToday = getClampDate(ui.todayISO);
+    const maxVisibleDate = getMaxParticipantVisibleDate();
+    let selectedDate = getClampDate(ui.selectedDate);
+    if (selectedDate > maxVisibleDate) {
+      selectedDate = maxVisibleDate;
+    }
     ui.selectedDate = selectedDate;
 
     const idx = dates.indexOf(selectedDate);
+    const maxIdx = dates.indexOf(maxVisibleDate);
     els.btnPrevDay.disabled = idx <= 0;
-    els.btnNextDay.disabled = idx < 0 || idx >= dates.length - 1;
+    els.btnNextDay.disabled = idx < 0 || idx >= maxIdx;
 
-    const effectiveToday = getClampDate(ui.todayISO);
     const isViewingToday = selectedDate === effectiveToday;
+    const isViewingTomorrow = selectedDate === maxVisibleDate && selectedDate > effectiveToday;
     els.btnGoToday.classList.toggle('hidden', isViewingToday);
-    els.selectedDayBadge.textContent = selectedDate === ui.todayISO ? 'HOY' : formatDateShort(selectedDate);
+    els.selectedDayBadge.textContent = selectedDate === ui.todayISO
+      ? 'HOY'
+      : (isViewingTomorrow ? `MAÑANA (${formatDateShort(selectedDate)})` : formatDateShort(selectedDate));
     els.selectedDateHeading.textContent = formatDateLong(selectedDate);
 
     const week = getWeekForDate(selectedDate);
@@ -664,21 +682,28 @@
       const isExpanded = ui.expandedWeeks.has(w.id);
 
       const daysHtml = weekDates.map((d) => {
-        const text = cleanDisplayName(ui.state.mortificaciones[d]) || 'Sin consigna definida';
-        const checked = Boolean(participant.mortificaciones[d]);
+        const isLocked = d > maxVisibleDate;
         const isToday = d === ui.todayISO;
+        const isTomorrow = d === maxVisibleDate && d > effectiveToday;
+        const text = isLocked
+          ? '🔒 Se habilita el día anterior (solo podés ver hasta mañana)'
+          : (cleanDisplayName(ui.state.mortificaciones[d]) || 'Sin consigna definida');
+        const checked = Boolean(participant.mortificaciones[d]);
         return `
-          <div class="day-row ${isToday ? 'is-today' : ''}">
+          <div class="day-row ${isToday ? 'is-today' : ''} ${isLocked ? 'is-locked' : ''}">
             <div class="day-row-info">
-              <div class="day-row-date">${escapeHtml(formatDateShort(d))} · ${escapeHtml(formatDateLong(d))}${isToday ? ' · HOY' : ''}</div>
-              <div class="day-row-text">${escapeHtml(text)}</div>
+              <div class="day-row-date">${escapeHtml(formatDateShort(d))} · ${escapeHtml(formatDateLong(d))}${isToday ? ' · HOY' : (isTomorrow ? ' · MAÑANA' : '')}</div>
+              <div class="day-row-text ${isLocked ? 'muted' : ''}">${escapeHtml(text)}</div>
             </div>
-            <button type="button"
-              class="check-pill-btn ${checked ? 'is-checked' : ''}"
-              data-toggle-mort="${escapeHtml(d)}"
-              data-next-val="${checked ? '0' : '1'}">
-              ${checked ? '✓ Cumplida' : 'Marcar'}
-            </button>
+            ${isLocked
+              ? `<button type="button" class="check-pill-btn" disabled title="Disponible el día anterior">🔒 Bloqueada</button>`
+              : `<button type="button"
+                  class="check-pill-btn ${checked ? 'is-checked' : ''}"
+                  data-toggle-mort="${escapeHtml(d)}"
+                  data-next-val="${checked ? '0' : '1'}">
+                  ${checked ? '✓ Cumplida' : 'Marcar'}
+                </button>`
+            }
           </div>
         `;
       }).join('');
@@ -948,6 +973,10 @@
   async function handleParticipantToggle(tipo, key, valor) {
     const participant = getCurrentParticipant();
     if (!participant) return;
+    if (tipo === 'mortificacion' && key > getMaxParticipantVisibleDate()) {
+      showToast('Solo podés marcar hasta el día siguiente.');
+      return;
+    }
     try {
       ui.state = await StorageService.toggleCheck({
         participanteId: participant.id,
@@ -1104,8 +1133,9 @@
 
     els.btnNextDay.addEventListener('click', () => {
       const dates = getSortedDates();
+      const maxIdx = dates.indexOf(getMaxParticipantVisibleDate());
       const idx = dates.indexOf(ui.selectedDate);
-      if (idx >= 0 && idx < dates.length - 1) {
+      if (idx >= 0 && idx < maxIdx) {
         ui.selectedDate = dates[idx + 1];
         renderParticipantView();
       }
