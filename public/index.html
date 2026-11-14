@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>San Benito · Misa Semanal y Mortificaciones</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-badge" aria-hidden="true">✠</div>
+        <div>
+          <p class="brand-motto">U.I.O.G.D. · San Benito</p>
+          <h1 class="brand-title">Misa Semanal y Mortificaciones</h1>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <span id="syncStatusBadge" class="sync-badge sync-local" title="Estado de guardado">Sincronizando...</span>
+
+        <div id="userChip" class="user-chip hidden">
+          <span class="user-chip-label">Hola, <strong id="currentUserName"></strong></span>
+          <button type="button" id="btnSwitchUser" class="btn btn-ghost btn-sm">Cambiar usuario</button>
+        </div>
+
+        <button type="button" id="btnToggleAdmin" class="btn btn-outline btn-sm">Panel Encargado</button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- VISTA PARTICIPANTE -->
+      <section id="participantView" class="view hidden" aria-label="Mi seguimiento personal">
+        <!-- Tarjeta de Hoy / Navegador de Días -->
+        <article class="card hero-card">
+          <div class="date-nav">
+            <button type="button" id="btnPrevDay" class="btn btn-ghost btn-sm" aria-label="Día anterior">◀ Anterior</button>
+            <div class="date-nav-center">
+              <span id="selectedDayBadge" class="pill pill-gold">HOY</span>
+              <h2 id="selectedDateHeading" class="hero-date">Cargando fecha...</h2>
+              <p id="selectedWeekLabel" class="hero-week"></p>
+            </div>
+            <button type="button" id="btnNextDay" class="btn btn-ghost btn-sm" aria-label="Día siguiente">Siguiente ▶</button>
+          </div>
+
+          <div class="today-jump-wrap">
+            <button type="button" id="btnGoToday" class="btn btn-link hidden">Volver a Hoy</button>
+          </div>
+
+          <div class="daily-grid">
+            <!-- Bloque Mortificación del Día -->
+            <div class="focus-box">
+              <div class="focus-box-header">
+                <span class="focus-eyebrow">Mortificación del día</span>
+                <span id="dayStatusPill" class="pill pill-pending">Pendiente</span>
+              </div>
+              <p id="selectedMortificationText" class="mortification-text"></p>
+              <button type="button" id="btnToggleTodayMort" class="btn btn-action btn-lg">
+                Marcar Mortificación como Cumplida
+              </button>
+            </div>
+
+            <!-- Bloque Misa Semanal -->
+            <div class="focus-box focus-box-mass">
+              <div class="focus-box-header">
+                <span class="focus-eyebrow">Misa Semanal</span>
+                <span id="weekMassPill" class="pill pill-pending">Pendiente</span>
+              </div>
+              <p id="weekMassDescription" class="mass-description"></p>
+              <button type="button" id="btnToggleWeekMass" class="btn btn-action btn-lg">
+                Marcar Misa de la Semana como Cumplida
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Estadísticas Personales -->
+        <section class="stats-grid" aria-label="Mi progreso">
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Mortificaciones hasta hoy</span>
+              <strong id="statMortToDate" class="stat-value">0 / 0</strong>
+            </div>
+            <div class="progress-track">
+              <div id="barMortToDate" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <p id="statMortToDateSub" class="stat-sub">0% de los días transcurridos</p>
+          </article>
+
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Misas Semanales</span>
+              <strong id="statMisas" class="stat-value">0 / 5</strong>
+            </div>
+            <div class="progress-track">
+              <div id="barMisas" class="progress-fill progress-gold" style="width: 0%"></div>
+            </div>
+            <p id="statMisasSub" class="stat-sub">0% de las 5 semanas</p>
+          </article>
+
+          <article class="card stat-card">
+            <div class="stat-top">
+              <span class="stat-label">Total del Plan (36 días)</span>
+              <strong id="statMortTotal" class="stat-value">0 / 36</strong>
+            </div>
+            <div class="progress-track">
+              <div id="barMortTotal" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <p id="statMortTotalSub" class="stat-sub">Del 13/11 al 18/12</p>
+          </article>
+        </section>
+
+        <!-- Calendario por Semanas -->
+        <section class="card">
+          <div class="section-header">
+            <div>
+              <h3>Calendario completo por semanas</h3>
+              <p class="muted">Podés marcar días anteriores o revisar las próximas consignas (13/11 al 18/12).</p>
+            </div>
+          </div>
+          <div id="weeksAccordion" class="weeks-list"></div>
+        </section>
+      </section>
+
+      <!-- VISTA PANEL ENCARGADO -->
+      <section id="adminView" class="view hidden" aria-label="Panel del Encargado">
+        <div class="admin-header-bar card">
+          <div>
+            <span class="pill pill-navy">Modo Supervisión</span>
+            <h2>Panel del Encargado</h2>
+          </div>
+          <div class="admin-header-actions">
+            <button type="button" id="btnRefreshAdmin" class="btn btn-ghost btn-sm">↻ Actualizar datos</button>
+            <button type="button" id="btnLockAdmin" class="btn btn-outline btn-sm">Bloquear Panel</button>
+          </div>
+        </div>
+
+        <!-- KPIs Grupales -->
+        <section class="kpi-grid" aria-label="Indicadores del grupo">
+          <article class="card kpi-card">
+            <span class="kpi-label">Participantes activos</span>
+            <strong id="kpiTotalParticipants" class="kpi-number">0</strong>
+            <span class="kpi-foot">Registrados en el control</span>
+          </article>
+          <article class="card kpi-card">
+            <span class="kpi-label">Mortificación de Hoy</span>
+            <strong id="kpiTodayDone" class="kpi-number">0 / 0</strong>
+            <span id="kpiTodayMissing" class="kpi-foot">Sin pendientes</span>
+          </article>
+          <article class="card kpi-card">
+            <span class="kpi-label">Misa Semana Actual</span>
+            <strong id="kpiMassDone" class="kpi-number">0 / 0</strong>
+            <span id="kpiMassMissing" class="kpi-foot">Sin pendientes</span>
+          </article>
+          <article class="card kpi-card">
+            <span class="kpi-label">Cumplimiento promedio</span>
+            <strong id="kpiGroupAvg" class="kpi-number">0%</strong>
+            <span class="kpi-foot">Mortificaciones hasta hoy</span>
+          </article>
+        </section>
+
+        <!-- Pestañas Admin -->
+        <div class="tabs-bar" role="tablist">
+          <button type="button" class="tab-btn active" data-tab="seguimiento" role="tab" aria-selected="true">Seguimiento Grupal</button>
+          <button type="button" class="tab-btn" data-tab="editor" role="tab" aria-selected="false">Editor de Mortificaciones (36 días)</button>
+          <button type="button" class="tab-btn" data-tab="config" role="tab" aria-selected="false">Configuración y Nube</button>
+        </div>
+
+        <!-- TAB 1: SEGUIMIENTO GRUPAL -->
+        <div id="tab-seguimiento" class="tab-panel active">
+          <article class="card">
+            <div class="toolbar">
+              <div class="toolbar-filters">
+                <input type="search" id="adminSearchInput" class="input" placeholder="Buscar participante..." />
+                <select id="adminFilterSelect" class="input">
+                  <option value="all">Todos los participantes</option>
+                  <option value="missing-today">Faltan mortificación hoy</option>
+                  <option value="missing-mass">Faltan Misa esta semana</option>
+                </select>
+              </div>
+              <div class="toolbar-actions">
+                <button type="button" id="btnLoadCampList" class="btn btn-outline btn-sm">+ Cargar lista del Campamento</button>
+                <button type="button" id="btnExportCsv" class="btn btn-primary btn-sm">⬇ Exportar a Excel (CSV)</button>
+              </div>
+            </div>
+
+            <form id="addParticipantForm" class="inline-add-form">
+              <input type="text" id="newParticipantInput" class="input" placeholder="Agregar participante manualmente (ej: Juan Pérez)" required />
+              <button type="submit" class="btn btn-secondary">Agregar</button>
+            </form>
+
+            <div class="table-wrap">
+              <table class="supervision-table">
+                <thead>
+                  <tr>
+                    <th>Participante</th>
+                    <th title="Semana 1 (13/11-19/11)">Misa S1</th>
+                    <th title="Semana 2 (20/11-26/11)">Misa S2</th>
+                    <th title="Semana 3 (27/11-03/12)">Misa S3</th>
+                    <th title="Semana 4 (04/12-10/12)">Misa S4</th>
+                    <th title="Semana 5 (11/12-18/12)">Misa S5</th>
+                    <th id="thTodayMort">Hoy</th>
+                    <th>Progreso hasta hoy</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="adminTableBody"></tbody>
+              </table>
+            </div>
+            <p id="adminEmptyState" class="empty-note hidden">No hay participantes que coincidan con el filtro.</p>
+          </article>
+        </div>
+
+        <!-- TAB 2: EDITOR DE MORTIFICACIONES -->
+        <div id="tab-editor" class="tab-panel hidden">
+          <article class="card">
+            <div class="section-header">
+              <div>
+                <h3>Editor de Mortificaciones Diarias</h3>
+                <p class="muted">Modificá cualquier consigna y guardá los cambios. Todos los participantes verán el texto actualizado.</p>
+              </div>
+              <button type="button" id="btnSaveMortificaciones" class="btn btn-primary">Guardar todas las consignas</button>
+            </div>
+
+            <div id="emptyDayAlert" class="alert-banner hidden">
+              <div>
+                <strong>Atención: el día 10/12 no tiene consigna definida.</strong>
+                <p>Podés escribir una consigna personalizada abajo o rellenarla con un clic.</p>
+              </div>
+              <button type="button" id="btnFillDec10Suggestion" class="btn btn-secondary btn-sm">
+                Usar sugerencia: Adelantar una tarea/trabajo...
+              </button>
+            </div>
+
+            <div id="mortEditorList" class="editor-list"></div>
+
+            <form id="addDateForm" class="inline-add-form mt-md">
+              <input type="date" id="newDateInput" class="input" required />
+              <input type="text" id="newDateTextInput" class="input" placeholder="Consigna de mortificación para esta fecha..." required />
+              <button type="submit" class="btn btn-outline">Agregar fecha</button>
+            </form>
+          </article>
+        </div>
+
+        <!-- TAB 3: CONFIGURACION Y NUBE -->
+        <div id="tab-config" class="tab-panel hidden">
+          <div class="config-grid">
+            <article class="card">
+              <h3>Clave de Encargado (PIN)</h3>
+              <p class="muted">Protege el acceso al Panel de Supervisión y edición de consignas (por defecto: <code>1234</code>).</p>
+              <form id="pinConfigForm" class="stack-form">
+                <label class="field-label" for="newPinInput">Nuevo PIN de acceso</label>
+                <input type="password" id="newPinInput" class="input" minlength="4" maxlength="20" placeholder="Mínimo 4 caracteres" required />
+                <button type="submit" class="btn btn-primary">Actualizar PIN</button>
+              </form>
+            </article>
+
+            <article class="card">
+              <h3>Sincronización en la Nube (Opcional)</h3>
+              <p class="muted">
+                Si usás la webapp desde el servidor Node.js (local, Render o Railway), ya guarda automáticamente en el servidor.
+                Si la publicás en un hosting estático (ej. GitHub Pages), pegá aquí la URL de tu base JSON en la nube (por ejemplo Firebase Realtime Database:
+                <code>https://tu-proyecto-default-rtdb.firebaseio.com/sanbenito.json</code>).
+              </p>
+              <form id="cloudConfigForm" class="stack-form">
+                <label class="field-label" for="cloudUrlInput">URL de base de datos JSON (Firebase / REST)</label>
+                <input type="url" id="cloudUrlInput" class="input" placeholder="https://.../sanbenito.json" />
+                <div class="row-actions">
+                  <button type="submit" class="btn btn-primary">Guardar y Sincronizar</button>
+                  <button type="button" id="btnClearCloudUrl" class="btn btn-ghost">Quitar URL</button>
+                </div>
+              </form>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL BIENVENIDA / SELECCION PARTICIPANTE -->
+  <div id="welcomeModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+    <div class="modal-card">
+      <div class="modal-header-brand">
+        <span class="brand-badge">✠</span>
+        <div>
+          <p class="brand-motto">San Benito</p>
+          <h2 id="welcomeTitle">¡Bienvenido! Elegí tu nombre</h2>
+        </div>
+      </div>
+      <p class="muted">
+        Tu sesión quedará guardada en este dispositivo para que la próxima vez entres directo a marcar tu Misa semanal y tu mortificación del día.
+      </p>
+
+      <div id="existingUsersWrap" class="existing-users-wrap hidden">
+        <p class="field-label">Tocá tu nombre si ya estás en la lista:</p>
+        <div id="existingUsersList" class="user-pills-grid"></div>
+      </div>
+
+      <form id="loginForm" class="stack-form">
+        <label class="field-label" for="loginNameInput">O escribí tu nombre y apellido si entrás por primera vez:</label>
+        <input type="text" id="loginNameInput" class="input input-lg" placeholder="Ej: Juan Marcos" autocomplete="name" required />
+        <button type="submit" class="btn btn-primary btn-lg">Ingresar y guardar mi sesión</button>
+      </form>
+
+      <div class="modal-footer-links">
+        <button type="button" id="btnWelcomeAdmin" class="btn btn-link">Soy el encargado · Entrar al Panel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL PIN ENCARGADO -->
+  <div id="pinModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
+    <div class="modal-card modal-sm">
+      <h2 id="pinModalTitle">Acceso Encargado</h2>
+      <p class="muted">Ingresá la clave de supervisión para ver el estado general y editar mortificaciones.</p>
+      <form id="pinLoginForm" class="stack-form">
+        <input type="password" id="pinPromptInput" class="input input-lg" placeholder="PIN (por defecto 1234)" required />
+        <p id="pinErrorMsg" class="error-text hidden">Clave incorrecta. Intentá nuevamente.</p>
+        <div class="row-actions">
+          <button type="button" id="btnCancelPin" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Ingresar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DETALLE 36 DIAS POR PARTICIPANTE -->
+  <div id="detailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+    <div class="modal-card modal-lg">
+      <div class="modal-head-row">
+        <div>
+          <span class="pill pill-navy">Detalle Individual</span>
+          <h2 id="detailModalTitle">Participante</h2>
+        </div>
+        <button type="button" id="btnCloseDetailModal" class="btn btn-ghost">✕ Cerrar</button>
+      </div>
+      <div id="detailModalBody" class="detail-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <script src="client.js"></script>
+</body>
+</html>
